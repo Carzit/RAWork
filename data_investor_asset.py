@@ -96,7 +96,7 @@ class HoldingsProcessor:
         """将持股数据格式化为字符串：Symbol1,Holdshares1;Symbol2,Holdshares2;..."""
         sorted_data = data.sort_values("Holdshares", ascending=False)
         holdings_list = [f"{row['Symbol']}" for _, row in sorted_data.iterrows()]
-        return ", ".join(holdings_list)
+        return f"[{', '.join(holdings_list)}]"
     
     def process_files(self, input_dir):
         """处理全部年度文件"""
@@ -116,21 +116,22 @@ class HoldingsProcessor:
     
     def _flush_buffer(self):
         """将缓存数据写入磁盘"""
+        i = 0
         for sh_id in self.buffer.keys():
-            sh_id = 10803941
             # 获取机构元数据
             #metadata = self.static_sh[self.static_sh["ShareHolderID"] == sh_id].iloc[0]
             #safe_name = self._sanitize_filename(metadata["ShareHolderName"])
             
             # 对记录按时间排序
             records = [{"EndDate": end_date, "Holdings": self._format_holdings(data)} for end_date, data in self.buffer[sh_id].items()]
-            print(records)
             sorted_records = sorted(records, key=lambda x: datetime.strptime(x["EndDate"], "%Y-%m-%d"))
             
             # 持久化
             output_path = self.output_dir / f"{sh_id}.csv"
             pd.DataFrame(sorted_records).to_csv(output_path, index=False)
-            break
+            i+=1
+            if i>10:
+                break
     
     def _sanitize_filename(self, name):
         """清理非法文件名字符"""
