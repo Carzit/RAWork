@@ -2,14 +2,52 @@ import os
 import json
 import pandas as pd
 from datetime import datetime
+from typing import List, Tuple, Dict, Literal, Union, Optional, Callable, Any
 from tqdm import tqdm
 
 import utils
 
-def read_config(config_path):
-    with open(config_path, 'r') as f:
-        config = json.load(f)
-    return config
+
+class ConvertedDataProcessor:
+    def __init__(self, converted_data_folder:str, output_folder:str):
+        
+        config_path = os.path.join(converted_data_folder, 'config.json')
+        self.config:dict = utils.read_configs(config_path)
+        self.inuput_folder:str = converted_data_folder
+        self.output_folder = output_folder
+
+        self.common_dates:List = []
+        self.common_stocks:List = []
+        self.common_factors:List = []
+
+    def intersection(self, other:"ConvertedDataProcessor", attr:Literal["dates", "stocks", "factors"])->List:
+        return sorted(list(set(self.config[attr]) & set(other.config[attr])))
+
+    def __and__(self, other:"ConvertedDataProcessor")->Tuple[List, List, List]:
+        common_dates = self.intersection(other, "dates")
+        common_stocks = self.intersection(other, "stocks")
+        common_factors = self.intersection(other, "factors")
+        return common_dates, common_stocks, common_factors
+    
+    def process(self, 
+                format:Literal["csv", "pkl", "parquet", "feather"]="csv",
+                **kwargs)->None:
+        """
+        Process the converted data
+        对文件夹下每个config['dates']中的日期为文件名，congfig["output_file_format"]为文件格式的文件进行处理
+        保留每个文件的在common_stocks的行和common_factors的列
+        """
+        for date in self.common_dates:
+            file_path = os.path.join(self.inuput_folder, f"{date}.{self.config['output_file_format']}")
+            if os.path.exists(file_path):
+                df = utils.load_dataframe(file_path, format=self.config['output_file_format'], **kwargs)
+                df = df.loc[self.common_stocks, self.common_factors]
+                utils.save_dataframe(df, 
+                                     os.path.join(self.output_folder, f"{date}.{format}"), 
+                                     format=format, 
+                                     **kwargs)
+
+
 
 class DataLoader:
     def __init__(self, folder_path):

@@ -547,6 +547,13 @@ class ConversionPipeline:
             "raw_data_format_type": format_type,
             "input_path": input_path,
             "output_path": output_path,
+            "input_file_format": None,
+            "input_kwargs": None,
+            "output_file_format": None,
+            "output_kwargs": None,
+            "dates": None,
+            "stocks": None,
+            "factors": None
         }
 
     def load_data(self, format:Literal["csv", "pkl", "parquet", "feather"]="pkl", **kwargs) -> None:
