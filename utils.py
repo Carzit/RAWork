@@ -3,6 +3,7 @@ import ast
 import psutil
 import inspect
 import logging
+import logging.handlers
 import argparse
 from typing import Tuple, Literal, Union, Optional, List, Dict, Any
 
@@ -18,6 +19,7 @@ import torch
 import safetensors
 import safetensors.torch
 from matplotlib import pyplot as plt
+from colorama import Fore, Style, init
 
 def str2bool(value:Union[bool, str]):
     if isinstance(value, bool):
@@ -331,4 +333,58 @@ class Plotter:
             filename = filename + ".png"
         plt.savefig(filename)
         plt.close()
-    
+
+class ColoredFormatter(logging.Formatter):
+    init(autoreset=True)
+    LEVEL_COLORS = {
+        logging.DEBUG: Fore.BLUE,
+        logging.INFO: Fore.CYAN,
+        logging.WARNING: Fore.YELLOW,
+        logging.ERROR: Fore.RED,
+        logging.CRITICAL: Fore.RED + Style.BRIGHT
+    }
+
+    def format(self, record):
+        # First, call the base class format method to ensure time, level, and other info are set
+        original_message = super().format(record)
+
+        # Color only the message part (record.msg)
+        log_color = self.LEVEL_COLORS.get(record.levelno, Fore.WHITE)
+        colored_message = f"{log_color}{record.getMessage()}{Style.RESET_ALL}"
+
+        # Replace the original message with the colored one, but keep the rest unchanged
+        return original_message.replace(record.getMessage(), colored_message)
+
+class LoggerPreparer:
+    def __init__(self, 
+                 name: str = 'logger', 
+                 console_level=logging.DEBUG, 
+                 file_level=logging.DEBUG,
+                 log_file: str = 'unnamed.log', 
+                 max_bytes: int = 1e6, 
+                 backup_count: int = 5):
+        log_folder = os.path.dirname(log_file)
+        if log_folder:
+            os.makedirs(log_folder, exist_ok=True)
+
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.DEBUG)
+
+        # Console handler with colored output
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(console_level)
+        console_formatter = ColoredFormatter('%(asctime)s [%(name)s][%(levelname)s]: %(message)s')
+        console_handler.setFormatter(console_formatter)
+
+        # File handler with plain text output
+        file_handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=int(max_bytes), backupCount=backup_count)
+        file_handler.setLevel(file_level)
+        file_formatter = logging.Formatter('%(asctime)s [%(name)s][%(levelname)s]: %(message)s')
+        file_handler.setFormatter(file_formatter)
+
+        # Add handlers to logger
+        self.logger.addHandler(console_handler)
+        self.logger.addHandler(file_handler)
+
+    def prepare(self) -> logging.Logger:
+        return self.logger

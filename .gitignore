@@ -1,3 +1,9 @@
 data/
 paper/
 record/
+__pycache__/
+*.model
+*.log
+*.csv
+*.png
+*.txt

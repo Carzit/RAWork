@@ -3,6 +3,8 @@ import pandas as pd
 from pathlib import Path
 from typing import Callable
 
+from tqdm import tqdm
+
 
 class CSVFileMerger:
     def __init__(self, 
@@ -47,11 +49,13 @@ class CSVFileMerger:
 
         # 遍历所有输入文件
         csv_files = list(self.input_dir.glob("*.csv"))
-        for csv_file in csv_files:
+        for csv_file in tqdm(csv_files):
             # 读取单个CSV文件
             df = pd.read_csv(csv_file)
             # 过滤行
             df = self._filter_rows(df)
+            # 添加 ShareHolderID 列，值为当前文件名（不带 .csv 后缀）
+            df.insert(0, "ShareHolderID", csv_file.stem)
             # 将当前文件数据添加到合并的DataFrame
             merged_df = pd.concat([merged_df, df], ignore_index=True)
             # 计算当前合并文件的大小
@@ -82,11 +86,11 @@ class CSVFileMerger:
 
 # 示例用法
 if __name__ == "__main__":
-    input_dir = r"data\raw\AssetEmbedding\test\output"  # 输入目录，包含所有CSV文件
-    output_dir = r"data\raw\AssetEmbedding\test\merge"  # 输出目录
+    input_dir = r"data\preprocess\AssetEmbedding2019-2024\investors"  # 输入目录，包含所有CSV文件
+    output_dir = r"data\preprocess\AssetEmbedding2019-2024\merged"  # 输出目录
 
     # 定义过滤函数(这里定义的是过滤Holdings列中数字元素个数不足2的行，也可以定义筛选其他条件的函数，例如在此基础上只保留持仓时间大于某个阈值的行、或者只保留某些机构（例如国家、政府背景的机构）的行)
-    def filter_holdings(df: pd.DataFrame, n: int = 2) -> pd.DataFrame:
+    def filter_holdings(df: pd.DataFrame, n: int = 3) -> pd.DataFrame:
         """
         过滤Holdings列中数字元素个数不足n的行
         :param df: 输入的DataFrame

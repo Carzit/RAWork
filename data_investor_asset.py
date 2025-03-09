@@ -79,8 +79,7 @@ class HoldingsProcessor:
         chunk = chunk[chunk["Holdshares"] > 0]
         
         # 按机构分组处理
-        for sh_id, group in chunk.groupby("ShareHolderID"):
-            
+        for sh_id, group in tqdm(chunk.groupby("ShareHolderID")): 
 
             if sh_id not in self.valid_sh_ids:
                 continue
@@ -101,14 +100,10 @@ class HoldingsProcessor:
     def process_files(self, input_dir):
         """处理全部年度文件"""
         for file_path in Path(input_dir).glob("*.csv"):
-            try:
-                year = int(file_path.stem)
-            except ValueError:
-                continue
             
             with pd.read_csv(file_path, chunksize=100000, index_col=False) as reader:
                 for chunk_idx, chunk in enumerate(reader):
-                    print(f"Processing {year} - Chunk {chunk_idx}")
+                    print(f"Processing {file_path.name} - Chunk {chunk_idx}")
                     self._process_single_chunk(chunk)
         
         # 触发持久化操作
@@ -116,7 +111,6 @@ class HoldingsProcessor:
     
     def _flush_buffer(self):
         """将缓存数据写入磁盘"""
-        i = 0
         for sh_id in self.buffer.keys():
             # 获取机构元数据
             #metadata = self.static_sh[self.static_sh["ShareHolderID"] == sh_id].iloc[0]
@@ -129,9 +123,7 @@ class HoldingsProcessor:
             # 持久化
             output_path = self.output_dir / f"{sh_id}.csv"
             pd.DataFrame(sorted_records).to_csv(output_path, index=False)
-            i+=1
-            if i>10:
-                break
+
     
     def _sanitize_filename(self, name):
         """清理非法文件名字符"""
@@ -151,12 +143,13 @@ class DataPipeline:
         
     def execute(self):
         # Step 1: 提取静态数据
-        #static_extractor = StaticDataExtractor()
-        #for file_path in Path(self.input_dir).glob("*.csv"):
-        #    static_extractor.process_file(file_path)
-        #static_extractor.save(self.static_dir)
-        #print("静态数据提取完成")
+        static_extractor = StaticDataExtractor()
+        for file_path in Path(self.input_dir).glob("*.csv"):
+            static_extractor.process_file(file_path)
+        static_extractor.save(self.static_dir)
+        print("静态数据提取完成")
         #sys.exit(0)
+
         # Step 2: 处理动态持仓数据
         processor = HoldingsProcessor(
             static_dir=self.static_dir,
@@ -167,8 +160,8 @@ class DataPipeline:
 
 if __name__ == "__main__":
     pipeline = DataPipeline(
-        input_dir=r"data\raw\AssetEmbedding\test",
-        static_dir=r"data\raw\AssetEmbedding\test\static", 
-        output_dir=r"data\raw\AssetEmbedding\test\output"
+        input_dir=r"data\raw\AssetEmbedding",
+        static_dir=r"data\preprocess\AssetEmbedding2019-2024\static", 
+        output_dir=r"data\preprocess\AssetEmbedding2019-2024\investors"
     )
     pipeline.execute()
