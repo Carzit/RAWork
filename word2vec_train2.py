@@ -9,6 +9,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from gensim.models import Word2Vec, KeyedVectors
+from tokenizers import Tokenizer
+from tokenizers.models import WordLevel
+from tokenizers.pre_tokenizers import BertPreTokenizer
 from tqdm import tqdm
 
 import utils
@@ -83,7 +86,7 @@ class Word2VecTrainer:
 
             self.logger.info("Training Word2Vec...")
             for epoch in tqdm(range(self.configs["epochs"]), desc="Training Progress", unit="epoch"):
-                self.model.train(dataset, total_examples=self.model.corpus_count, epochs=1)
+                self.model.train(self.dataset, total_examples=self.model.corpus_count, epochs=1)
                 loss = self.model.get_latest_training_loss()
                 self.logger.debug(f"Epoch[{epoch+1}] Loss: {loss}")
 
@@ -104,7 +107,7 @@ class BERTEmbeddingTransfer:
 
     def load_word2vec_model(self, file_path:str):
         if file_path.endswith(".model"):
-            self.word2vec_model.load(file_path)
+            self.word2vec_model = Word2Vec.load(file_path)
         elif file_path.endswith(".txt"):
             self.word2vec_model = KeyedVectors.load_word2vec_format(file_path, binary=False)
         else:
@@ -116,11 +119,15 @@ class BERTEmbeddingTransfer:
     def save_mappings(self, folder_path):
         """保存 token-index 映射为 JSON 文件"""
 
-        os.makedirs(folder_path)
-        with open(os.path.join(folder_path, "token2index.json"), "w", encoding="utf-8") as f:
+        os.makedirs(folder_path, exist_ok=True)
+        with open(os.path.join(folder_path, "stockid2index.json"), "w", encoding="utf-8") as f:
             json.dump(self.token2index_mapping, f, ensure_ascii=False, indent=2)
-        with open(os.path.join(folder_path, "index2token.json"), "w", encoding="utf-8") as f:
+        with open(os.path.join(folder_path, "index2stockid.json"), "w", encoding="utf-8") as f:
             json.dump(self.index2token_mapping, f, ensure_ascii=False, indent=2)
+
+        tokenizer = Tokenizer(WordLevel(vocab=self.token2index_mapping, unk_token="[UNK]"))
+        tokenizer.pre_tokenizer = BertPreTokenizer()
+        tokenizer.save(os.path.join(folder_path, "tokenizer.json"))
         
         
     def transform(self) -> nn.Embedding:
@@ -172,13 +179,18 @@ def get_index2token_mapping(model:Word2Vec)->Dict[int, str]:
 
 # 5️⃣ **完整管线**
 if __name__ == "__main__":
-    folder = r"data\preprocess\AssetEmbedding2019-2024\merged"  # 修改为你的数据集路径
-    dataset = AssetTokenDataset(folder)
-    w2v_trainer = Word2VecTrainer()
-    w2v_trainer.load_dataset(dataset)
-    w2v_trainer.set_logger()
-    w2v_trainer.train()
-    w2v_trainer.save()
+    #folder = r"data\preprocess\AssetEmbedding2019-2024\merged"  # 修改为你的数据集路径
+    #dataset = AssetTokenDataset(folder)
+    #w2v_trainer = Word2VecTrainer()
+    #w2v_trainer.load_dataset(dataset)
+    #w2v_trainer.set_logger()
+    #w2v_trainer.train()
+    #w2v_trainer.save()
+
+    bert_transfer = BERTEmbeddingTransfer()
+    bert_transfer.load_word2vec_model("word2vec.model")
+    bert_transfer.save_mappings("./")
+    bert_embedding = bert_transfer.transform()
 
 
     print("BERT Embedding ready!")
