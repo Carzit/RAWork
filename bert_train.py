@@ -7,7 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import json
 from transformers import PreTrainedTokenizerFast
-
+from collections import OrderedDict
 
 
 tokenizer = PreTrainedTokenizerFast(
@@ -27,12 +27,6 @@ tokenizer = PreTrainedTokenizerFast(
 
 #sys.exit(0)
 
-import os
-import pandas as pd
-import torch
-from torch.utils.data import Dataset
-from transformers import PreTrainedTokenizerFast
-from collections import OrderedDict
 
 class AssetEmbeddingMLMDataset(Dataset):
     def __init__(self, data_dir, tokenizer, max_length=20, mask_prob=0.15, cache_size=5):
@@ -127,7 +121,40 @@ class AssetEmbeddingMLMDataset(Dataset):
             "labels": labels
         }
 
-# 读取数据
-dataset = AssetEmbeddingMLMDataset(data_dir=r"data\preprocess\AssetEmbedding2019-2024\merged", tokenizer=tokenizer, cache_size=5)
-print(dataset[0])
-print(tokenizer.decode(dataset[0]["input_ids"]))
+from transformers import BertConfig, BertForMaskedLM
+
+# 自定义 BERT 配置
+config = BertConfig(
+    vocab_size=len(tokenizer),  # 词表大小
+    hidden_size=768,  # 隐藏层维度
+    num_hidden_layers=12,  # BERT 层数
+    num_attention_heads=12,  # 多头注意力
+    intermediate_size=3072,  # FFN 维度
+    max_position_embeddings=512,
+    type_vocab_size=1,  # 只用单个 segment
+)
+
+# 初始化 MLM 任务模型
+model = BertForMaskedLM(config).to("cuda")
+
+# 迁移 word2vec 到 embedding 层
+import gensim
+word2vec_model = gensim.models.Word2Vec.load("word2vec.model")
+
+def load_word2vec_weights(model, word2vec_model):
+    embedding_weights = model.bert.embeddings.word_embeddings.weight.data
+    for word, idx in tokenizer.vocab.items():
+        if word in word2vec_model.wv:
+            embedding_weights[idx] = torch.tensor(word2vec_model.wv[word])
+    print("✅ Word2Vec 权重已加载到 BERT 词嵌入层！")
+
+load_word2vec_weights(model, word2vec_model)
+
+
+
+if __name__ == "__main__":
+    
+    # 读取数据
+    dataset = AssetEmbeddingMLMDataset(data_dir=r"data\preprocess\AssetEmbedding2019-2024\merged", tokenizer=tokenizer, cache_size=5)
+    print(dataset[0])
+    print(tokenizer.decode(dataset[0]["input_ids"]))
