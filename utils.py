@@ -5,6 +5,7 @@ import inspect
 import logging
 import logging.handlers
 import argparse
+from functools import wraps
 from typing import Tuple, Literal, Union, Optional, List, Dict, Any
 
 import math
@@ -388,3 +389,44 @@ class LoggerPreparer:
 
     def prepare(self) -> logging.Logger:
         return self.logger
+    
+def log_exceptions(logger):
+    """
+    装饰器，用于捕获函数中的异常并通过提供的logger记录它们。
+    :param logger: 传入的logger对象，用于记录异常信息
+    :return: 返回装饰后的函数
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            try:
+                return func(self, *args, **kwargs)
+            except Exception as e:
+                # 使用传入的logger来记录异常信息
+                logger.error("Exception occurred in %s", func.__name__, exc_info=True)
+                # 可选择是否在这里再次抛出异常
+                # raise e
+        return wrapper
+    return decorator
+
+def log_exceptions_inclass(logger_attr:str="logger"):
+    """
+    装饰器工厂函数，返回一个用于捕获异常并记录日志的装饰器。
+    装饰器会在运行时访问类实例的logger属性。
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            try:
+                return func(self, *args, **kwargs)
+            except Exception as e:
+                # 在运行时通过self访问logger
+                logger = getattr(self, logger_attr, None)
+                if logger is not None:
+                    logger.error(f"Exception occurred in {func.__name__}", exc_info=True)
+                else:
+                    print("Logger not found!")
+                # 可选择是否在这里再次抛出异常
+                # raise e
+        return wrapper
+    return decorator

@@ -28,7 +28,7 @@ class AssetTokenDataset:
                 for chunk in pd.read_csv(file_path, chunksize=10000):  # 分块加载
                     for _, row in chunk.iterrows():
                         holdings = ast.literal_eval(row["Holdings"])  # 转换为列表
-                        yield ["[CLS]"]+[str(h) for h in holdings]+["[SEP]"]  # 转换为字符串，适配 Word2Vec
+                        yield ["[CLS]"]+[str(h).zfill(6) for h in holdings]+["[SEP]"]  # 转换为字符串，适配 Word2Vec
 
 
 class Word2VecTrainer:
@@ -69,29 +69,27 @@ class Word2VecTrainer:
                    backup_count: int = 5):
         self.logger = utils.LoggerPreparer(name, console_level, file_level, log_file, max_bytes, backup_count).prepare()
 
+    @utils.log_exceptions_inclass()
     def train(self):
-        try:
-            self.logger.info("Initializing Model...")
-            self.model = Word2Vec(vector_size=self.configs["embedding_dim"], 
-                                window=self.configs["window"], 
-                                min_count=self.configs["min_count"], 
-                                sg=self.configs["sg"], 
-                                sample=self.configs["sample"], 
-                                negative=self.configs["negative_sample"],
-                                seed=self.configs["seed"],
-                                workers=self.configs["workers"])
-            
-            self.logger.info("Building Vocabulary...")
-            self.model.build_vocab(self.dataset)
 
-            self.logger.info("Training Word2Vec...")
-            for epoch in tqdm(range(self.configs["epochs"]), desc="Training Progress", unit="epoch"):
-                self.model.train(self.dataset, total_examples=self.model.corpus_count, epochs=1)
-                loss = self.model.get_latest_training_loss()
-                self.logger.debug(f"Epoch[{epoch+1}] Loss: {loss}")
+        self.logger.info("Initializing Model...")
+        self.model = Word2Vec(vector_size=self.configs["embedding_dim"], 
+                            window=self.configs["window"], 
+                            min_count=self.configs["min_count"], 
+                            sg=self.configs["sg"], 
+                            sample=self.configs["sample"], 
+                            negative=self.configs["negative_sample"],
+                            seed=self.configs["seed"],
+                            workers=self.configs["workers"])
+        
+        self.logger.info("Building Vocabulary...")
+        self.model.build_vocab(self.dataset)
 
-        except Exception as e:
-            self.logger.error("Exception occurred", exc_info=True)
+        self.logger.info("Training Word2Vec...")
+        for epoch in tqdm(range(self.configs["epochs"]), desc="Training Progress", unit="epoch"):
+            self.model.train(self.dataset, total_examples=self.model.corpus_count, epochs=1)
+            loss = self.model.get_latest_training_loss()
+            self.logger.debug(f"Epoch[{epoch+1}] Loss: {loss}")
 
     def save(self, save_path="word2vec.model"):
         self.model.save(save_path)
