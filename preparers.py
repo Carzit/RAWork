@@ -12,8 +12,8 @@ import bitsandbytes as bnb
 from transformers import PreTrainedTokenizerFast, BertConfig, BertForMaskedLM
 import safetensors
 
-from configs import Config, OptimizerConfig, AssetBERTModelConfig
-from datasets import WrappedTokenizer, Tokenizer, PreTrainedTokenizerFast, WordLevel, BertPreTokenizer
+from configs import Config, OptimizerConfig, AssetBERTModelConfig, DataLoaderConfig
+from datasets import WrappedTokenizer, Tokenizer, PreTrainedTokenizerFast, WordLevel, BertPreTokenizer, Dataset, DataLoader, AssetBERTMLMDataset
 import utils
 
 class Preparer:
@@ -59,13 +59,13 @@ class Tokenizer_Preparer(Preparer):
         super().__init__()
         self.config:AssetBERTModelConfig = AssetBERTModelConfig()
 
-    def prepare(self) -> WrappedTokenizer:
-        if self.pretrained_tokenizer_file is not None:
+    def prepare(self) -> PreTrainedTokenizerFast:
+        if self.config.pretrained_tokenizer_file is not None:
             self.vocab_file = None
-            tokenizer = WrappedTokenizer.from_pretrained(self.pretrained_tokenizer_file)
-        elif self.vocab_file is not None:
-            self.pretrained_tokenizer_file = None
-            inner_tokenizer = Tokenizer(WordLevel(vocab=self.vocab_file, unk_token="[UNK]"))
+            tokenizer = WrappedTokenizer.from_pretrained(self.config.pretrained_tokenizer_file)
+        elif self.config.vocab_file is not None:
+            self.config.pretrained_tokenizer_file = None
+            inner_tokenizer = Tokenizer(WordLevel(vocab=self.config.vocab_file, unk_token="[UNK]"))
             inner_tokenizer.pre_tokenizer = BertPreTokenizer()
             bert_tokenizer = PreTrainedTokenizerFast(tokenizer_object=inner_tokenizer)
             bert_tokenizer.add_special_tokens(
@@ -78,9 +78,21 @@ class Tokenizer_Preparer(Preparer):
                     }
             )
             tokenizer = WrappedTokenizer(bert_tokenizer)
-        tokenizer.load_name2id_mapping(self.alias_file)
+        tokenizer.load_name2id_mapping(self.config.alias_file)
         return tokenizer
 
+class DataLoader_Preparer(Preparer):
+    def __init__(self):
+        super().__init__()
+        self.config:DataLoaderConfig = DataLoaderConfig()
+
+    def prepare(self, tokenizer:WrappedTokenizer) -> DataLoader:
+        dataset = AssetBERTMLMDataset(data_dir=self.config.data_dir, tokenizer=tokenizer, max_length=self.config.max_length)
+        dataloader = DataLoader(dataset, 
+                                batch_size=self.config.batch_size, 
+                                shuffle=self.config.shuffle, 
+                                num_workers=self.config.num_workers)
+        return dataloader
 
 
 class Optimizer_Preparer(Preparer):
@@ -220,6 +232,5 @@ class Optimizer_Preparer(Preparer):
     def prepare(self, trainable_params):
         optimizer = self.prepare_optimizer(trainable_params=trainable_params)
         lr_scheduler = self.prepare_lr_scheduler(optimizer=optimizer)
-        print(optimizer, lr_scheduler)
         return optimizer, lr_scheduler
     

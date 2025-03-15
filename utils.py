@@ -273,6 +273,19 @@ class MeanVarianceAccumulator:
         delta2 = x - self._mean
         self._m2 += delta * delta2
 
+    def clear(self):
+        self._n = 0
+        self._mean = 0.0
+        self._m2 = 0.0 # 重置计数器和中间量
+
+    @property
+    def count(self):
+        return self._n
+    
+    @property
+    def sum(self):
+        return self._mean * self._n
+
     def var(self, ddof:int=0):
         if self._n < 2:
             return float('nan')  # 当样本数小于2时，方差无定义
@@ -281,6 +294,7 @@ class MeanVarianceAccumulator:
     def std(self, ddof:int=0):
         return math.sqrt(self.var(ddof=ddof))
 
+    @property
     def mean(self):
         return self._mean
     

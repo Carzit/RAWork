@@ -238,6 +238,25 @@ class TokenizerConfig(Config):
                             "pretrained_tokenizer_file": None, 
                             "alias_file": None}
 
+class DataLoaderConfig(Config):
+    def __init__(self):
+        super().__init__()
+        self.valid_keys = ["data_dir", "max_length", "batch_size", "shuffle", "num_workers", "pin_memory"]
+        self.key_constraints = {"data_dir": TypeConstraint(str),
+                                "max_length": TypeConstraint(int),
+                                "batch_size": TypeConstraint(int), 
+                                "shuffle": TypeConstraint(bool), 
+                                "num_workers": TypeConstraint(int), 
+                                "pin_memory": TypeConstraint(bool)}
+        for k, v in self.key_constraints.items():
+            v.attach(k)
+        self.config_dict = {"data_dir": "data",
+                            "max_length": 50,
+                            "batch_size": 32, 
+                            "shuffle": True, 
+                            "num_workers": 0, 
+                            "pin_memory": False}
+
 class OptimizerConfig(Config):
     def __init__(self):
         super().__init__()
@@ -288,14 +307,14 @@ class AssetBERTModelConfig(Config):
 class AssetBERTTrainConfig(Config):
     def __init__(self):
         super().__init__()
-        self.valid_keys = ["max_epoches", "grad_clip_norm", "grad_clip_value", "detect_anomaly", "device", "dtype", "log_folder", "sample_per_batch", "report_per_epoch", "save_per_epoch", "save_folder", "save_name", "save_format"]
+        self.valid_keys = ["max_epoches", "grad_clip_norm", "grad_clip_value", "detect_anomaly", "device", "dtype", "log_folder", "check_per_step", "report_per_epoch", "save_per_epoch", "save_folder", "save_name", "save_format"]
         self.key_constraints = {"max_epoches": TypeConstraint(int), 
                                 "grad_clip_norm": OrConstraint([RangeConstraint(0, None), EqualityConstraint(-1)]),
                                 "grad_clip_value": OrConstraint([RangeConstraint(0, None), EqualityConstraint(-1)]),
                                 "gradient_accumulation_steps": UnionConstraint([TypeConstraint(int), RangeConstraint(1, None)]), 
                                 "detect_anomaly": TypeConstraint(bool), 
                                 "mixed_precision": ChoiceConstraint([None, 'no', 'fp16', 'bf16', 'fp8']),
-                                "sample_per_batch": UnionConstraint([TypeConstraint(int), RangeConstraint(0, None)]), 
+                                "check_per_step": UnionConstraint([TypeConstraint(int), RangeConstraint(0, None)]), 
                                 "report_per_epoch": UnionConstraint([TypeConstraint(int), RangeConstraint(0, None)]), 
                                 "save_per_epoch": UnionConstraint([TypeConstraint(int), RangeConstraint(0, None)]), 
                                 "save_folder": TypeConstraint(str), 
@@ -310,7 +329,7 @@ class AssetBERTTrainConfig(Config):
                             "gradient_accumulation_steps": 1,
                             "detect_anomaly": True,
                             "mixed_precision": None,
-                            "sample_per_batch": 300,
+                            "check_per_step": 300,
                             "report_per_epoch": 1,
                             "save_per_epoch": 1,
                             "save_folder": "model\\AttnFactorVAE\\test_softmax2",

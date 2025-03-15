@@ -112,7 +112,6 @@ class AssetBERTMLMDataset(Dataset):
         df = self.load_csv(file_path)
         row = df.iloc[line_idx]
         holdings = "[CLS] " + " ".join(str(id).zfill(6) for id in eval(row["Holdings"][1:-1])) + " [SEP]"  # 从字符串中提取持仓信息
-        print(holdings)
 
         # Tokenization
         encoding = self.tokenizer(
@@ -141,6 +140,11 @@ class WrappedTokenizer(PreTrainedTokenizerFast):
         self.tokenizer:PreTrainedTokenizerFast = tokenizer
         self.name_to_id:Dict[str,str] = None
         self.id_to_name:Dict[str,str] = None
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path: str, **kwargs):
+        tokenizer = PreTrainedTokenizerFast.from_pretrained(pretrained_model_name_or_path, **kwargs)
+        return cls(tokenizer)
 
     def load_name2id_mapping(self, file_path:Optional[str]="stock_info_id_name.csv"):
         """加载 ID 到 Name 的映射"""
@@ -322,8 +326,15 @@ if __name__ == "__main__":
     dataset = AssetBERTMLMDataset(data_dir=r"data\preprocess\AssetEmbedding2019-2024\merged", tokenizer=tokenizer, cache_size=5)
     print(dataset[0])
     print(tokenizer.decode(dataset[0]["input_ids"]))
+    print(dataset[1])
+    print(tokenizer.decode(dataset[1]["input_ids"]))
+    print(dataset[2])
+    print(tokenizer.decode(dataset[2]["input_ids"]))
+    print(dataset[3])
+    print(tokenizer.decode(dataset[3]["input_ids"]))
     print(tokenizer.encode("[CLS] [SEP] [MASK] [PAD] [UNK]"))
 
+    '''
     # 自定义 BERT 配置
     config = BertConfig(
         vocab_size=len(tokenizer),  # 词表大小
@@ -338,4 +349,5 @@ if __name__ == "__main__":
     model = BertForMaskedLM(config).to("cuda")
     transfer.load_bert_model(model)
     transfer.transfer_model()
-    transfer.save_configs("bert_stock_saved")
+    transfer.save_configs("bert_stock_saved")'
+    '''
