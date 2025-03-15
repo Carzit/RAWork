@@ -118,8 +118,7 @@ def save_dataframe(df:Union[pd.DataFrame, pd.Series],
     if not func:
         raise ValueError(f"Unsupported format: {format}")
 
-    sig = inspect.signature(func)
-    filtered_kwargs = {k: v for k, v in kwargs.items() if k in sig.parameters} # 获取函数签名并过滤无关参数
+    filtered_kwargs, _ = filter_func_kwargs(func, kwargs)
     
     return func(path, **filtered_kwargs)
 
@@ -138,8 +137,8 @@ def load_dataframe(path:str,
     if not func:
         raise ValueError(f"Unsupported format: {format}")
 
-    sig = inspect.signature(func)
-    filtered_kwargs = {k: v for k, v in kwargs.items() if k in sig.parameters} # 获取函数签名并过滤无关参数
+    filtered_kwargs, _ = filter_func_kwargs(func, kwargs)
+
     if format == "csv" and "index_col" not in filtered_kwargs:
         filtered_kwargs["index_col"] = 0
     
@@ -336,6 +335,7 @@ class Plotter:
         plt.close()
 
 class ColoredFormatter(logging.Formatter):
+    """A custom log formatter that colorizes the log level and message parts of the log record."""
     init(autoreset=True)
     LEVEL_COLORS = {
         logging.DEBUG: Fore.BLUE,
@@ -378,7 +378,10 @@ class LoggerPreparer:
         console_handler.setFormatter(console_formatter)
 
         # File handler with plain text output
-        file_handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=int(max_bytes), backupCount=backup_count)
+        file_handler = logging.handlers.RotatingFileHandler(log_file, 
+                                                            mode="a",
+                                                            maxBytes=int(max_bytes), 
+                                                            backupCount=backup_count)
         file_handler.setLevel(file_level)
         file_formatter = logging.Formatter('%(asctime)s [%(name)s][%(levelname)s]: %(message)s')
         file_handler.setFormatter(file_formatter)
@@ -430,3 +433,30 @@ def log_exceptions_inclass(logger_attr:str="logger"):
                 # raise e
         return wrapper
     return decorator
+
+def filter_func_kwargs(func, kwargs):
+    """
+    根据函数签名过滤关键字参数，并打印出被过滤掉的参数。
+    
+    :param func: 要检查其签名的函数。
+    :param kwargs: 关键字参数字典。
+    :return: 返回过滤后的关键字参数字典。
+    """
+    # 获取 func 的签名
+    if kwargs is None:
+        kwargs = {}
+    sig = inspect.signature(func)
+    
+    # 初始化用于存储过滤后的参数和被drop的参数
+    filtered_kwargs = {}
+    dropped_kwargs = {}
+    
+    # 过滤无关的 kwargs 并找出被drop的参数
+    for k, v in kwargs.items():
+        if k in sig.parameters:
+            filtered_kwargs[k] = v
+        else:
+            dropped_kwargs[k] = v
+    
+    # 返回过滤后的关键字参数
+    return filtered_kwargs, dropped_kwargs
